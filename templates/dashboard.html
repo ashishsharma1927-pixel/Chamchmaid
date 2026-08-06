@@ -1,0 +1,473 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+        padding-bottom: 60px;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .section-header h2 {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0;
+        color: var(--text-color);
+    }
+    .view-gallery-link {
+        color: #0ea5e9;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* Media Grid */
+    .media-grid {
+        column-count: 4;
+        column-gap: 20px;
+    }
+    @media (max-width: 1200px) { .media-grid { column-count: 3; } }
+    @media (max-width: 900px)  { .media-grid { column-count: 2; } }
+    @media (max-width: 600px)  { .media-grid { column-count: 1; } }
+
+    .media-card {
+        break-inside: avoid;
+        margin-bottom: 20px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--surface-color);
+        position: relative;
+    }
+    .media-card img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    .media-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 20px;
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+    .media-info h3 {
+        margin: 0 0 4px 0;
+        font-size: 18px;
+        color: white;
+    }
+    .media-info p {
+        margin: 0;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.7);
+    }
+    .btn-like {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 16px;
+    }
+    .btn-like svg {
+        width: 24px;
+        height: 24px;
+        fill: transparent;
+        stroke: white;
+        stroke-width: 2;
+        transition: fill 0.2s, stroke 0.2s;
+    }
+    .btn-like.liked svg {
+        fill: #ef4444;
+        stroke: #ef4444;
+    }
+    
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .pagination button {
+        background: var(--surface-color);
+        border: 1px solid var(--glass-10);
+        color: var(--text-color);
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.2s;
+    }
+    .pagination button:hover:not(:disabled) {
+        background: var(--glass-10);
+    }
+    .pagination button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Media Options */
+    .media-options {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+    }
+    .btn-options {
+        background: var(--shadow-strong);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        backdrop-filter: blur(4px);
+    }
+    .btn-options:hover {
+        background: rgba(0,0,0,0.7);
+    }
+    .options-menu {
+        position: absolute;
+        top: 40px;
+        right: 0;
+        background: var(--surface-color);
+        border: 1px solid var(--glass-10);
+        border-radius: 8px;
+        overflow: hidden;
+        display: none;
+        box-shadow: 0 10px 15px -3px var(--shadow-strong);
+    }
+    .options-menu.active {
+        display: block;
+    }
+    .btn-delete {
+        background: transparent;
+        color: #ef4444;
+        border: none;
+        padding: 10px 16px;
+        width: 100%;
+        text-align: left;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+    .btn-delete:hover {
+        background: var(--glass-05);
+    }
+
+
+    /* FAB Upload */
+    .fab-upload {
+        position: fixed;
+        bottom: 40px;
+        right: 40px;
+        width: 56px;
+        height: 56px;
+        background: #0f766e;
+        color: white;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transition: transform 0.2s;
+        border: none;
+        z-index: 100;
+    }
+    .fab-upload:hover {
+        transform: scale(1.05);
+    }
+    .fab-upload svg {
+        width: 24px;
+        height: 24px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    /* Modals (Reused from previous) */
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex; justify-content: center; align-items: center;
+        z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal-content {
+        background: var(--surface-color); width: 100%; max-width: 500px;
+        border-radius: 16px; padding: 24px; border: 1px solid var(--glass-10);
+        transform: translateY(20px); transition: transform 0.2s;
+    }
+    .modal-overlay.active .modal-content { transform: translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-header h3 { margin: 0; }
+    .btn-close { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-muted); }
+    .form-control { width: 100%; padding: 10px; background: var(--glass-05); border: 1px solid var(--glass-10); border-radius: 8px; color: white; font-family: inherit; box-sizing: border-box; }
+    .btn-submit { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; margin-top: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    
+    <!-- Recent Media Section -->
+    <div>
+        <div class="section-header">
+            <h2>Recent Media</h2>
+            <a href="#" class="view-gallery-link">View Gallery</a>
+        </div>
+        
+        <div class="media-grid" id="media-grid-container">
+            <!-- Loading placeholder -->
+            <div style="color:var(--text-muted);">Loading media...</div>
+        </div>
+        <div id="pagination-container"></div>
+    </div>
+
+
+
+</div>
+
+<!-- Floating Upload Button -->
+<button class="fab-upload" onclick="openUploadModal()">
+    <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+</button>
+
+<!-- Upload Media Modal -->
+<div class="modal-overlay" id="upload-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Upload Media</h3>
+            <button class="btn-close" onclick="closeUploadModal()">×</button>
+        </div>
+        <form id="upload-form">
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="media-title" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Subtitle (Optional)</label>
+                <input type="text" id="media-subtitle" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Image File</label>
+                <input type="file" id="media-image" class="form-control" accept="image/*" required>
+            </div>
+            <button type="submit" class="btn-submit">Upload</button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Utility to toggle likes
+    async function toggleLike(postId, btnElement) {
+        try {
+            const res = await fetch(`/api/media/${postId}/like/`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.liked) {
+                    btnElement.classList.add('liked');
+                } else {
+                    btnElement.classList.remove('liked');
+                }
+                btnElement.querySelector('span').innerText = data.likes_count;
+            }
+        } catch (e) {
+            console.error('Failed to like', e);
+        }
+    }
+
+    function getOptionsHtml(p) {
+        if (!p.is_owner) return '';
+        return `
+            <div class="media-options">
+                <button class="btn-options" onclick="toggleOptionsMenu(${p.id}, event)">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                </button>
+                <div class="options-menu" id="options-menu-${p.id}">
+                    <button class="btn-delete" onclick="deleteMedia(${p.id})">Delete Image</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function toggleOptionsMenu(id, event) {
+        event.stopPropagation();
+        document.querySelectorAll('.options-menu').forEach(m => {
+            if (m.id !== `options-menu-${id}`) m.classList.remove('active');
+        });
+        document.getElementById(`options-menu-${id}`).classList.toggle('active');
+    }
+
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.options-menu').forEach(m => m.classList.remove('active'));
+    });
+
+    async function deleteMedia(id) {
+        if (!confirm("Are you sure you want to delete this image?")) return;
+        try {
+            const res = await fetch(`/api/media/${id}/delete/`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                loadMedia();
+            } else {
+                alert("Failed to delete image.");
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    // Load Media
+    let allMediaPosts = [];
+    let currentPage = 1;
+    const postsPerPage = 5;
+
+    async function loadMedia() {
+        try {
+            const res = await fetch('/api/media/', {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                allMediaPosts = await res.json();
+                renderMediaPage();
+            }
+        } catch (e) {
+            console.error('Failed to load media', e);
+        }
+    }
+
+    function renderMediaPage() {
+        const container = document.getElementById('media-grid-container');
+        const paginationContainer = document.getElementById('pagination-container');
+        
+        if (allMediaPosts.length === 0) {
+            container.innerHTML = '<div style="color:var(--text-muted); column-span: all;">No media uploaded yet.</div>';
+            if (paginationContainer) paginationContainer.innerHTML = '';
+            return;
+        }
+
+        const startIndex = (currentPage - 1) * postsPerPage;
+        const endIndex = startIndex + postsPerPage;
+        const postsToRender = allMediaPosts.slice(startIndex, endIndex);
+
+        let html = '';
+        
+        postsToRender.forEach(p => {
+            html += `
+            <div class="media-card">
+                ${getOptionsHtml(p)}
+                <img src="${p.image}" alt="${p.title}">
+                <div class="media-overlay">
+                    <div class="media-info">
+                        <h3>${p.title}</h3>
+                        ${p.subtitle ? `<p>${p.subtitle}</p>` : ''}
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                            <img src="${p.author_avatar}" alt="Avatar" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
+                            <span style="font-size: 13px; color: rgba(255, 255, 255, 0.7);">Shared by ${p.author_name}</span>
+                        </div>
+                    </div>
+                    <button class="btn-like ${p.is_liked ? 'liked' : ''}" onclick="toggleLike(${p.id}, this)">
+                        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                        <span>${p.likes_count}</span>
+                    </button>
+                </div>
+            </div>`;
+        });
+
+        const totalPages = Math.ceil(allMediaPosts.length / postsPerPage);
+        
+        let paginationHtml = '';
+        if (totalPages > 1) {
+            paginationHtml = `
+            <div class="pagination">
+                <button onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}>Previous</button>
+                <span style="color: var(--text-color);">Page ${currentPage} of ${totalPages}</span>
+                <button onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>
+            </div>`;
+        }
+
+        container.innerHTML = html;
+        if (paginationContainer) paginationContainer.innerHTML = paginationHtml;
+    }
+
+    function changePage(delta) {
+        const totalPages = Math.ceil(allMediaPosts.length / postsPerPage);
+        currentPage += delta;
+        if (currentPage < 1) currentPage = 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+        renderMediaPage();
+        // Scroll to top of the grid
+        document.getElementById('media-grid-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+
+    // Upload Modal Handling
+    function openUploadModal() { document.getElementById('upload-modal').classList.add('active'); }
+    function closeUploadModal() { document.getElementById('upload-modal').classList.remove('active'); document.getElementById('upload-form').reset(); }
+
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData();
+        formData.append('title', document.getElementById('media-title').value);
+        formData.append('subtitle', document.getElementById('media-subtitle').value);
+        const imageFile = document.getElementById('media-image').files[0];
+        if (imageFile) formData.append('image', imageFile);
+
+        try {
+            const res = await fetch('/api/media/', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+                body: formData
+            });
+            if (res.ok) {
+                closeUploadModal();
+                loadMedia();
+            } else {
+                alert('Failed to upload image.');
+            }
+        } catch (e) { 
+            console.error('Error uploading media', e); 
+        }
+    });
+
+    // Init
+    loadMedia();
+</script>
+{% endblock %}

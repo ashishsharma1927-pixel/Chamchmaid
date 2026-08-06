@@ -1,0 +1,983 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-layout {
+        display: flex;
+        gap: 20px;
+        height: calc(90vh - 80px);
+        width: 100%;
+    }
+
+    .chat-container {
+        background: var(--surface-color);
+        border: 1px solid var(--glass-10);
+        border-radius: 24px;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 10px 30px var(--shadow-strong);
+        overflow: hidden;
+    }
+
+    .chat-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--glass-10);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--glass-05);
+    }
+
+    .chat-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-color);
+    }
+
+    .chat-header .room-name {
+        color: var(--primary);
+    }
+
+    .chat-header a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: color 0.2s;
+    }
+
+    .chat-header a:hover {
+        color: var(--text-color);
+    }
+
+    .chat-messages {
+        flex-grow: 1;
+        padding: 24px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--glass-20) transparent;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+        background-color: var(--glass-20);
+        border-radius: 3px;
+    }
+
+    .message {
+        display: flex;
+        flex-direction: column;
+        max-width: 70%;
+    }
+
+    .message.self {
+        align-self: flex-end;
+    }
+
+    .message.other {
+        align-self: flex-start;
+    }
+
+    .message-sender {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+        padding: 0 4px;
+    }
+
+    .message.self .message-sender {
+        text-align: right;
+        display: none;
+    }
+
+    .message-content {
+        padding: 12px 16px;
+        border-radius: 16px;
+        font-size: 0.9375rem;
+        line-height: 1.5;
+        word-break: break-word;
+        color: var(--text-color);
+        position: relative;
+    }
+
+    .message-menu-container {
+        position: relative;
+        display: inline-block;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .message:hover .message-menu-container {
+        opacity: 1;
+    }
+
+    .message-menu-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .message-menu-btn:hover {
+        background: var(--glass-10);
+    }
+
+    .message-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: var(--surface-color);
+        border: 1px solid var(--glass-10);
+        border-radius: 8px;
+        box-shadow: 0 4px 12px var(--shadow-strong);
+        display: none;
+        flex-direction: column;
+        min-width: 100px;
+        z-index: 10;
+        overflow: hidden;
+    }
+
+    .message-dropdown.active {
+        display: flex;
+    }
+
+    .message-dropdown-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--text-color);
+        text-align: left;
+        border: none;
+        background: transparent;
+        width: 100%;
+    }
+
+    .message-dropdown-item:hover {
+        background: var(--glass-05);
+    }
+
+    .message-dropdown-item.delete {
+        color: #ef4444;
+    }
+
+    .read-receipt {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 6px;
+        color: var(--text-muted);
+    }
+
+    .read-receipt .icon-read {
+        display: none;
+    }
+
+    .read-receipt.read .icon-unread {
+        display: none;
+    }
+
+    .read-receipt.read .icon-read {
+        display: block;
+        color: var(--primary-color, #8b5cf6); /* Uses a purple/indigo color to match the theme */
+    }
+
+    .message.self .message-content {
+        background: var(--primary);
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+
+    .message.other .message-content {
+        background: var(--glass-10);
+        border-bottom-left-radius: 4px;
+    }
+
+    .chat-input {
+        padding: 20px 24px;
+        border-top: 1px solid var(--glass-10);
+        display: flex;
+        gap: 12px;
+        background: var(--glass-02);
+    }
+
+    .chat-input input {
+        flex-grow: 1;
+        background: var(--glass-05);
+        border: 1px solid var(--glass-10);
+        border-radius: 20px;
+        padding: 12px 20px;
+        color: var(--text-color);
+        font-size: 0.9375rem;
+        outline: none;
+        transition: border-color 0.2s, background 0.2s;
+    }
+
+    .chat-input input:focus {
+        border-color: var(--primary);
+        background: var(--glass-10);
+    }
+
+    .chat-input button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        padding: 0 24px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .chat-input button:hover {
+        opacity: 0.9;
+    }
+
+    .chat-input button:active {
+        transform: scale(0.95);
+    }
+
+    /* Emoji Picker */
+    .emoji-container {
+        position: relative;
+        display: flex;
+    }
+
+    .chat-input .emoji-btn {
+        background: var(--glass-05);
+        border: 1px solid var(--glass-10);
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-color);
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .chat-input .emoji-btn:hover {
+        background: var(--glass-10);
+    }
+
+    .chat-input .emoji-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .emoji-popup {
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        background: var(--surface-color);
+        border: 1px solid var(--glass-10);
+        border-radius: 12px;
+        padding: 12px;
+        display: none;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+        margin-bottom: 12px;
+        box-shadow: 0 10px 25px -5px var(--shadow-strong);
+        z-index: 100;
+    }
+
+    .emoji-popup.active {
+        display: grid;
+    }
+
+    .emoji-popup span {
+        font-size: 24px;
+        cursor: pointer;
+        text-align: center;
+        transition: transform 0.1s;
+        user-select: none;
+        line-height: 1;
+    }
+
+    .emoji-popup span:hover {
+        transform: scale(1.25);
+    }
+
+    /* Sidebar Styles */
+    .chat-sidebar {
+        width: 320px;
+        background: var(--surface-color);
+        border: 1px solid var(--glass-10);
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 10px 30px var(--shadow-strong);
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .sidebar-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--glass-10);
+        background: var(--glass-05);
+    }
+    
+    .sidebar-header h2 {
+        margin: 0 0 16px 0;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-color);
+    }
+
+    .search-bar {
+        position: relative;
+    }
+
+    .search-bar input {
+        width: 100%;
+        background: var(--glass-05);
+        border: 1px solid var(--glass-10);
+        border-radius: 20px;
+        padding: 10px 16px 10px 40px;
+        color: var(--text-color);
+        font-size: 0.875rem;
+        outline: none;
+        box-sizing: border-box;
+    }
+
+    .search-bar input:focus {
+        border-color: var(--primary);
+    }
+
+    .search-bar svg {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        stroke: var(--text-muted);
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .sidebar-list {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--glass-20) transparent;
+    }
+    
+    .sidebar-list::-webkit-scrollbar {
+        width: 6px;
+    }
+    .sidebar-list::-webkit-scrollbar-thumb {
+        background-color: var(--glass-20);
+        border-radius: 3px;
+    }
+
+    .sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 16px;
+        cursor: pointer;
+        transition: background 0.2s;
+        text-decoration: none;
+    }
+
+    .sidebar-item:hover {
+        background: var(--glass-05);
+    }
+
+    .sidebar-item.active {
+        background: var(--glass-10);
+        border: 1px solid var(--primary);
+    }
+
+    .sidebar-avatar-container {
+        position: relative;
+    }
+
+    .sidebar-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .online-indicator {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 10px;
+        height: 10px;
+        background-color: #10b981; /* Emerald green */
+        border: 2px solid var(--surface-color);
+        border-radius: 50%;
+    }
+
+    .sidebar-info {
+        flex-grow: 1;
+        overflow: hidden;
+    }
+
+    .sidebar-name {
+        margin: 0;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-color);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sidebar-status {
+        margin: 4px 0 0 0;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sidebar-time {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        align-self: flex-start;
+        margin-top: 4px;
+    }
+    
+    .new-conversation {
+        margin: 16px;
+        background: #34d399; /* Mint green */
+        color: #064e3b;
+        border: none;
+        border-radius: 20px;
+        padding: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: opacity 0.2s, transform 0.1s;
+    }
+    
+    .new-conversation:hover {
+        opacity: 0.9;
+    }
+    
+    .new-conversation:active {
+        transform: scale(0.97);
+    }
+
+    @media (max-width: 992px) {
+        .chat-sidebar {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout" id="app" style="display: none;">
+    <!-- Main Chat Window -->
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>Chat with <span class="room-name" id="display-room-name">Loading...</span></h2>
+            <a href="javascript:history.back()">← Back to Friends</a>
+        </div>
+    
+        <div class="chat-messages" id="chat-messages">
+            <!-- Messages will be injected here -->
+        </div>
+    
+        <div class="chat-input">
+            <div class="emoji-container" id="emoji-container">
+                <button id="emoji-btn" class="emoji-btn" type="button" title="Add Emoji" onclick="toggleEmojiPopup(event)">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                        <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                        <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                    </svg>
+                </button>
+                <div class="emoji-popup" id="emoji-popup">
+                    <span onclick="insertEmoji('😀', event)">😀</span><span onclick="insertEmoji('😂', event)">😂</span>
+                    <span onclick="insertEmoji('🤣', event)">🤣</span><span onclick="insertEmoji('😊', event)">😊</span>
+                    <span onclick="insertEmoji('😍', event)">😍</span><span onclick="insertEmoji('🥰', event)">🥰</span>
+                    <span onclick="insertEmoji('😘', event)">😘</span><span onclick="insertEmoji('😜', event)">😜</span>
+                    <span onclick="insertEmoji('😎', event)">😎</span><span onclick="insertEmoji('🥺', event)">🥺</span>
+                    <span onclick="insertEmoji('😭', event)">😭</span><span onclick="insertEmoji('😡', event)">😡</span>
+                    <span onclick="insertEmoji('👍', event)">👍</span><span onclick="insertEmoji('👎', event)">👎</span>
+                    <span onclick="insertEmoji('❤️', event)">❤️</span><span onclick="insertEmoji('🔥', event)">🔥</span>
+                    <span onclick="insertEmoji('✨', event)">✨</span><span onclick="insertEmoji('🎉', event)">🎉</span>
+                    <span onclick="insertEmoji('👏', event)">👏</span><span onclick="insertEmoji('🙏', event)">🙏</span>
+                </div>
+            </div>
+            <input type="text" id="chat-message-input" placeholder="Share a message or a photo..." autocomplete="off">
+            <button id="chat-message-submit">Send</button>
+        </div>
+    </div>
+
+    <!-- Right Sidebar (Recent Chats) -->
+    <div class="chat-sidebar">
+        <div class="sidebar-header">
+            <h2>Recent Chats</h2>
+            <div class="search-bar">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="friend-search" placeholder="Search friends..." oninput="filterFriends()">
+            </div>
+        </div>
+        
+        <div class="sidebar-list" id="sidebar-friends-list">
+            <!-- Friend items injected by JS -->
+        </div>
+
+        <button class="new-conversation" onclick="window.location.href='/messages/'">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            New Conversation
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let roomId = "{{ room_id }}";
+
+    let userId = null;
+    let userEmail = null;
+    let chatSocket = null;
+    const chatMessages = document.querySelector('#chat-messages');
+    let allFriends = [];
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function formatTime(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + date.toLocaleDateString();
+    }
+
+    function appendMessage(id, senderName, content, timestamp, isSelf, isEdited, isRead) {
+        const messageEl = document.createElement('div');
+        messageEl.classList.add('message');
+        messageEl.classList.add(isSelf ? 'self' : 'other');
+        messageEl.id = 'msg-' + id;
+
+        let senderHtml = '';
+        if (!isSelf) {
+            senderHtml = `<div class="message-sender">${senderName}</div>`;
+        }
+        
+        let metaText = formatTime(timestamp) + (isEdited ? ' (edited)' : '');
+
+        let actionsHtml = '';
+        if (isSelf) {
+            let readDotHtml = `
+                <span class="read-receipt ${isRead ? 'read' : ''}" id="read-receipt-${id}">
+                    <svg class="icon-unread" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    <svg class="icon-read" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </span>
+            `;
+            actionsHtml = `
+                <div class="message-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 4px;">
+                    <div class="message-meta" id="msg-meta-${id}" style="font-size: 10px; color: var(--text-muted); display: flex; align-items: center;">
+                        ${metaText} ${readDotHtml}
+                    </div>
+                    <div class="message-menu-container">
+                        <button class="message-menu-btn" onclick="toggleMessageMenu(event, '${id}')">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="1"></circle>
+                                <circle cx="12" cy="5" r="1"></circle>
+                                <circle cx="12" cy="19" r="1"></circle>
+                            </svg>
+                        </button>
+                        <div class="message-dropdown" id="msg-dropdown-${id}">
+                            <button class="message-dropdown-item" onclick="editMessage('${id}', '${content.replace(/'/g, "\\'")}')">Edit</button>
+                            <button class="message-dropdown-item delete" onclick="deleteMessage('${id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            actionsHtml = `
+                <div class="message-meta" id="msg-meta-${id}" style="font-size: 10px; color: var(--text-muted); margin-top: 4px; text-align: left; padding: 0 4px;">${metaText}</div>
+            `;
+        }
+
+        messageEl.innerHTML = `
+            ${senderHtml}
+            <div class="message-content" id="msg-content-${id}">${content}</div>
+            ${actionsHtml}
+        `;
+
+        chatMessages.appendChild(messageEl);
+        scrollToBottom();
+    }
+    
+    function toggleMessageMenu(e, id) {
+        e.stopPropagation();
+        // Close all other menus first
+        document.querySelectorAll('.message-dropdown.active').forEach(menu => {
+            if (menu.id !== 'msg-dropdown-' + id) {
+                menu.classList.remove('active');
+            }
+        });
+        const menu = document.getElementById('msg-dropdown-' + id);
+        if (menu) menu.classList.toggle('active');
+    }
+
+    // Close menus when clicking outside
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.message-dropdown.active').forEach(menu => {
+            menu.classList.remove('active');
+        });
+    });
+    
+    function editMessage(id, oldContent) {
+        const contentDiv = document.getElementById('msg-content-' + id);
+        if (!contentDiv) return;
+        
+        // Escape quotes to prevent HTML breaking
+        const safeContent = oldContent.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+        
+        contentDiv.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box;">
+                <input type="text" id="edit-input-${id}" value="${safeContent}" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--glass-20); border-radius: 8px; background: var(--surface-color); color: var(--text-color); font-family: 'Inter', sans-serif;">
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button onclick="saveEdit('${id}')" style="background: var(--primary-color, #4f46e5); color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Save</button>
+                    <button onclick="cancelEdit('${id}', '${safeContent}')" style="background: transparent; color: var(--text-color); border: 1px solid var(--glass-20); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        // Hide the edit/delete buttons while editing
+        const actionsDiv = contentDiv.parentElement.querySelector('.message-actions');
+        if (actionsDiv) actionsDiv.style.display = 'none';
+        
+        const inputField = document.getElementById(`edit-input-${id}`);
+        inputField.focus();
+        // Move cursor to end
+        inputField.selectionStart = inputField.selectionEnd = inputField.value.length;
+        
+        inputField.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                saveEdit(id);
+            } else if (e.key === 'Escape') {
+                cancelEdit(id, oldContent);
+            }
+        });
+    }
+
+    function saveEdit(id) {
+        const inputField = document.getElementById(`edit-input-${id}`);
+        if (!inputField) return;
+        
+        const newContent = inputField.value.trim();
+        if (newContent !== "") {
+            if (chatSocket) {
+                chatSocket.send(JSON.stringify({
+                    'action': 'edit',
+                    'message_id': id,
+                    'content': newContent,
+                    'sender_id': userId
+                }));
+            }
+            // Optimistically update UI so it doesn't stay as input while waiting for websocket
+            cancelEdit(id, newContent);
+        }
+    }
+
+    function cancelEdit(id, originalContent) {
+        const contentDiv = document.getElementById('msg-content-' + id);
+        if (contentDiv) {
+            contentDiv.innerText = originalContent; // restore text
+            
+            // Show the edit/delete buttons again
+            const actionsDiv = contentDiv.parentElement.querySelector('.message-actions');
+            if (actionsDiv) actionsDiv.style.display = 'flex';
+        }
+    }
+    
+    function deleteMessage(id) {
+        if (confirm("Are you sure you want to delete this message?")) {
+            if (chatSocket) {
+                chatSocket.send(JSON.stringify({
+                    'action': 'delete',
+                    'message_id': id,
+                    'sender_id': userId
+                }));
+            }
+            // Optimistically remove from UI
+            const msgEl = document.getElementById('msg-' + id);
+            if (msgEl) msgEl.remove();
+        }
+    }
+
+    async function initChat() {
+        try {
+            const res = await fetch(`/chat/api/room/${roomId}/`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            if (!res.ok) {
+                throw new Error('Failed to load room data');
+            }
+
+            const data = await res.json();
+
+            userId = data.current_user_id;
+            userEmail = data.current_user_email;
+
+            if (data.other_user) {
+                document.getElementById('display-room-name').textContent = data.other_user.name;
+                document.title = `Chat: ${data.other_user.name}`;
+            } else {
+                document.getElementById('display-room-name').textContent = data.room_name;
+            }
+
+            data.messages.forEach(msg => {
+                const isSelf = msg.sender_id === userId;
+                appendMessage(msg.id, msg.sender_name, msg.content, msg.timestamp, isSelf, msg.is_edited, msg.is_read);
+            });
+
+            document.getElementById('app').style.display = 'flex';
+            scrollToBottom();
+
+            initWebSocket();
+            loadSidebarFriends();
+
+        } catch (err) {
+            console.error(err);
+            alert("Error loading chat room. Ensure you are authorized.");
+            window.location.href = '/messages/';
+        }
+    }
+
+    async function loadSidebarFriends() {
+        try {
+            const res = await fetch('/chat/api/messages_data/', {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                allFriends = data.friends;
+                renderSidebarFriends(allFriends);
+            }
+        } catch (e) {
+            console.error("Failed to load sidebar friends", e);
+        }
+    }
+
+    function renderSidebarFriends(friendsToRender) {
+        const list = document.getElementById('sidebar-friends-list');
+        if (friendsToRender.length === 0) {
+            list.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 14px;">No friends found.</div>`;
+            return;
+        }
+
+        // Current room's other user name if available (we will match by name for active state, or email)
+        const currentRoomName = document.getElementById('display-room-name').textContent;
+
+        list.innerHTML = friendsToRender.map(f => {
+            const isActive = f.name === currentRoomName ? 'active' : '';
+            return `
+                <div class="sidebar-item ${isActive}" onclick="startChat(${f.id})">
+                    <div class="sidebar-avatar-container">
+                        <img class="sidebar-avatar" src="${f.avatar}" alt="${f.name}">
+                        <div class="online-indicator"></div>
+                    </div>
+                    <div class="sidebar-info">
+                        <h4 class="sidebar-name">${f.name}</h4>
+                        <p class="sidebar-status">Tap to chat</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function filterFriends() {
+        const query = document.getElementById('friend-search').value.toLowerCase();
+        const filtered = allFriends.filter(f => f.name.toLowerCase().includes(query) || f.email.toLowerCase().includes(query));
+        renderSidebarFriends(filtered);
+    }
+
+    async function startChat(friendId) {
+        try {
+            const res = await fetch(`/chat/start/${friendId}/`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const newRoomId = data.room_id;
+                
+                if (newRoomId == roomId) {
+                    return; // Already in this room
+                }
+                
+                // Update URL without reloading
+                window.history.pushState({}, '', `/chat/${newRoomId}/`);
+                
+                // Update global roomId
+                roomId = newRoomId;
+                
+                // Close existing socket
+                if (chatSocket) {
+                    chatSocket.close();
+                }
+                
+                // Clear chat messages container
+                document.querySelector('#chat-messages').innerHTML = '';
+                document.getElementById('display-room-name').textContent = 'Loading...';
+                
+                // Re-initialize the chat for the new room
+                await initChat();
+                
+            } else {
+                alert('Failed to start chat. Ensure you are friends.');
+            }
+        } catch (e) {
+            console.error("Failed to start chat", e);
+        }
+    }
+
+    function initWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        chatSocket = new WebSocket(
+            protocol + window.location.host + '/ws/chat/' + roomId + '/'
+        );
+
+        chatSocket.onopen = function (e) {
+            console.log('Chat socket connected');
+            chatSocket.send(JSON.stringify({
+                'action': 'read_all',
+                'sender_id': userId
+            }));
+        };
+
+        chatSocket.onmessage = function (e) {
+            const data = JSON.parse(e.data);
+            if (data.action === 'send') {
+                const isSelf = data.sender === userEmail;
+                appendMessage(data.id, data.sender_name, data.message, data.timestamp, isSelf, data.is_edited, false);
+                
+                // If we received a message from someone else while the socket is open, mark it as read immediately
+                if (!isSelf) {
+                    chatSocket.send(JSON.stringify({
+                        'action': 'read_all',
+                        'sender_id': userId
+                    }));
+                }
+            } else if (data.action === 'edit') {
+                const msgContent = document.getElementById('msg-content-' + data.message_id);
+                if (msgContent) {
+                    msgContent.innerText = data.content;
+                    const meta = document.getElementById('msg-meta-' + data.message_id);
+                    if (meta && !meta.innerText.includes('(edited)')) {
+                        // Just append the text before the read receipt if we are self
+                        meta.innerHTML = meta.innerHTML.replace('</span>', ' (edited)</span>'); // quick hack to show edited without breaking dot
+                    }
+                }
+            } else if (data.action === 'delete') {
+                const msgEl = document.getElementById('msg-' + data.message_id);
+                if (msgEl) {
+                    msgEl.remove();
+                }
+            } else if (data.action === 'read_all') {
+                // If the other person read the messages, turn all our black dots red
+                if (data.reader_id !== userId) {
+                    document.querySelectorAll('.read-receipt:not(.read)').forEach(el => {
+                        el.classList.add('read');
+                    });
+                }
+            }
+        };
+
+        chatSocket.onclose = function (e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+
+        const inputDom = document.querySelector('#chat-message-input');
+        inputDom.focus();
+
+        inputDom.onkeyup = function (e) {
+            if (e.key === 'Enter') {
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+
+        document.querySelector('#chat-message-submit').onclick = function (e) {
+            const message = inputDom.value.trim();
+
+            if (message && chatSocket) {
+                chatSocket.send(JSON.stringify({
+                    'action': 'send',
+                    'message': message,
+                    'sender_id': userId
+                }));
+                inputDom.value = '';
+            }
+        };
+    }
+
+    function toggleEmojiPopup(e) {
+        e.stopPropagation();
+        document.getElementById('emoji-popup').classList.toggle('active');
+    }
+
+    function insertEmoji(emoji, e) {
+        e.stopPropagation();
+        const input = document.getElementById('chat-message-input');
+        input.value += emoji;
+        input.focus();
+    }
+
+    document.addEventListener('click', (e) => {
+        const container = document.getElementById('emoji-container');
+        if (container && !container.contains(e.target)) {
+            document.getElementById('emoji-popup').classList.remove('active');
+        }
+    });
+
+    initChat();
+</script>
+{% endblock %}

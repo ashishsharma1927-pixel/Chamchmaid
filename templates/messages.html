@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+
+{% block title %}Messages & Friends{% endblock %}
+
+{% block extra_css %}
+<style>
+    .messages-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding-top: 20px;
+    }
+
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-color);
+        margin-bottom: 20px;
+        margin-top: 40px;
+    }
+
+    .user-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .user-card {
+        background: var(--surface-color);
+        border: 1px solid var(--glass-05);
+        border-radius: 16px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .user-card-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .user-card-info {
+        flex-grow: 1;
+        overflow: hidden;
+    }
+
+    .user-card-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-color);
+        margin: 0 0 4px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-card-username {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin: 0 0 12px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-action {
+        flex: 1;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-accept {
+        background: #34d399;
+        color: #064e3b;
+    }
+
+    .btn-accept:hover {
+        background: #10b981;
+    }
+
+    .btn-reject {
+        background: rgba(239, 68, 68, 0.1);
+        color: #fca5a5;
+    }
+
+    .btn-reject:hover {
+        background: rgba(239, 68, 68, 0.2);
+    }
+
+    .btn-chat {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-chat:hover {
+        background: #4f46e5;
+    }
+
+    .empty-state {
+        color: var(--text-muted);
+        font-size: 14px;
+        background: var(--glass-02);
+        padding: 30px;
+        border-radius: 12px;
+        text-align: center;
+        border: 1px dashed var(--glass-10);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="messages-container">
+    <div class="header">
+        <h1>Messages & Friends</h1>
+    </div>
+
+    <div id="pending-section" style="display: none;">
+        <h2 class="section-title">Pending Requests</h2>
+        <div class="user-grid" id="pending-requests-grid">
+            <!-- Injected by JS -->
+        </div>
+    </div>
+
+    <div>
+        <h2 class="section-title">Your Friends</h2>
+        <div class="user-grid" id="friends-grid">
+            <!-- Injected by JS -->
+        </div>
+        <div id="empty-friends" class="empty-state" style="display: none;">
+            You haven't added any friends yet. Search for users to connect!
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function loadMessagesData() {
+        try {
+            const res = await fetch('/chat/api/messages_data/', {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                renderPendingRequests(data.pending_requests);
+                renderFriends(data.friends);
+            }
+        } catch (e) {
+            console.error("Failed to load messages data", e);
+        }
+    }
+
+    function renderPendingRequests(requests) {
+        const pendingSection = document.getElementById('pending-section');
+        const pendingGrid = document.getElementById('pending-requests-grid');
+
+        if (requests.length === 0) {
+            pendingSection.style.display = 'none';
+            return;
+        }
+
+        pendingSection.style.display = 'block';
+        pendingGrid.innerHTML = requests.map(req => `
+            <div class="user-card" id="request-${req.request_id}">
+                <img class="user-card-avatar" src="${req.avatar}" alt="Avatar">
+                <div class="user-card-info">
+                    <h4 class="user-card-name">${req.name}</h4>
+                    <p class="user-card-username">${req.email}</p>
+                    <div class="btn-group">
+                        <button class="btn-action btn-accept" onclick="manageRequest(${req.request_id}, 'accept')">Accept</button>
+                        <button class="btn-action btn-reject" onclick="manageRequest(${req.request_id}, 'reject')">Reject</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderFriends(friends) {
+        const friendsGrid = document.getElementById('friends-grid');
+        const emptyFriends = document.getElementById('empty-friends');
+
+        if (friends.length === 0) {
+            friendsGrid.innerHTML = '';
+            emptyFriends.style.display = 'block';
+            return;
+        }
+
+        emptyFriends.style.display = 'none';
+        friendsGrid.innerHTML = friends.map(f => `
+            <div class="user-card">
+                <img class="user-card-avatar" src="${f.avatar}" alt="Avatar">
+                <div class="user-card-info">
+                    <h4 class="user-card-name">${f.name}</h4>
+                    <p class="user-card-username">${f.email}</p>
+                    <div class="btn-group">
+                        <button class="btn-action btn-chat" onclick="startChat(${f.id}, this)">
+                            Chat
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function manageRequest(requestId, action) {
+        try {
+            const res = await fetch('/chat/request/manage/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({ request_id: requestId, action: action })
+            });
+            if (res.ok) {
+                // Refresh data to reflect the change
+                loadMessagesData();
+            }
+        } catch (e) {
+            console.error("Failed to manage request", e);
+        }
+    }
+
+    async function startChat(userId, btn) {
+        btn.disabled = true;
+        btn.innerText = 'Starting...';
+        try {
+            const res = await fetch(`/chat/start/${userId}/`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                window.location.href = `/chat/${data.room_id}/`;
+            } else {
+                alert('Failed to start chat. Ensure you are friends.');
+                btn.disabled = false;
+                btn.innerText = 'Chat';
+            }
+        } catch (e) {
+            console.error("Failed to start chat", e);
+            btn.disabled = false;
+            btn.innerText = 'Chat';
+        }
+    }
+
+    // Initialize
+    loadMessagesData();
+</script>
+{% endblock %}

@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CHAMCHMAID{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Apply theme early to prevent flickering
+        const savedTheme = localStorage.getItem('app-theme');
+        if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    </script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --sidebar-width: 240px;
+
+            --glass-02: rgba(255, 255, 255, 0.02);
+            --glass-05: rgba(255, 255, 255, 0.05);
+            --glass-10: rgba(255, 255, 255, 0.1);
+            --glass-20: rgba(255, 255, 255, 0.2);
+            --glass-30: rgba(255, 255, 255, 0.3);
+            --glass-70: rgba(255, 255, 255, 0.7);
+
+            --shadow-strong: rgba(0, 0, 0, 0.5);
+        }
+
+        :root[data-theme="light"] {
+            --bg-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-color: #0f172a;
+            --text-muted: #64748b;
+
+            --glass-02: rgba(0, 0, 0, 0.02);
+            --glass-05: rgba(0, 0, 0, 0.05);
+            --glass-10: rgba(0, 0, 0, 0.1);
+            --glass-20: rgba(0, 0, 0, 0.2);
+            --glass-30: rgba(0, 0, 0, 0.3);
+            --glass-70: rgba(0, 0, 0, 0.7);
+
+            --shadow-strong: rgba(0, 0, 0, 0.1);
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--surface-color);
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--glass-05);
+            position: fixed;
+            height: 100%;
+            box-sizing: border-box;
+            transition: width 0.3s ease;
+            overflow-x: hidden;
+            z-index: 1000;
+        }
+        
+        body.sidebar-collapsed .sidebar {
+            width: 88px;
+            padding: 32px 16px;
+        }
+
+        body.sidebar-collapsed .main-content {
+            margin-left: 88px;
+        }
+
+        body.sidebar-collapsed .nav-text {
+            display: none;
+        }
+
+        body.sidebar-collapsed .sidebar-search-container {
+            display: none;
+        }
+
+        body.sidebar-collapsed .sidebar-logo-text {
+            display: none;
+        }
+
+        .nav-text {
+            white-space: nowrap;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-color);
+            margin-bottom: 40px;
+            padding-left: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-items {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-weight: 400;
+            font-size: 16px;
+        }
+
+        .nav-item:hover {
+            background-color: var(--glass-05);
+            transform: translateX(4px);
+        }
+
+        .nav-item.active {
+            font-weight: 700;
+        }
+
+        .nav-item svg {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: transform 0.2s;
+        }
+
+        .nav-item:hover svg {
+            transform: scale(1.1);
+        }
+
+        .sidebar-search-container {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .sidebar-search-input {
+            width: 100%;
+            background: var(--glass-05);
+            border: 1px solid var(--glass-10);
+            color: var(--text-color);
+            padding: 10px 14px 10px 36px;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .sidebar-search-input:focus {
+            border-color: var(--primary);
+        }
+
+        .sidebar-search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: var(--text-muted);
+            stroke-width: 2;
+            pointer-events: none;
+        }
+
+        .sidebar-search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--surface-color);
+            border: 1px solid var(--glass-10);
+            border-radius: 8px;
+            margin-top: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 12px var(--shadow-strong);
+        }
+
+        .sidebar-search-results.active {
+            display: block;
+        }
+
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid var(--glass-05);
+        }
+
+        .search-result-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .search-result-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .search-result-email {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .btn-connect {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .btn-connect:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        /* Notification Dropdown */
+        .notification-container {
+            position: relative;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 10px;
+            height: 10px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            display: none;
+            border: 2px solid var(--surface-color);
+        }
+
+        .notification-badge.active {
+            display: block;
+        }
+
+        .notification-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--surface-color);
+            border: 1px solid var(--glass-10);
+            border-radius: 12px;
+            margin-top: 10px;
+            width: 320px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 200;
+            display: none;
+            box-shadow: 0 10px 25px -5px var(--shadow-strong);
+            padding: 16px;
+            cursor: default;
+        }
+
+        .notification-dropdown.active {
+            display: block;
+        }
+
+        .notification-dropdown h3 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .notification-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--glass-05);
+        }
+
+        .notification-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .notification-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .notification-info {
+            flex-grow: 1;
+        }
+
+        .notification-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .notification-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 2px 0 0 0;
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-acc {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .btn-rej {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--glass-10);
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Main Content Layout */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex-grow: 1;
+            padding: 40px;
+            box-sizing: border-box;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+
+        /* Shared Components */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--glass-05);
+        }
+
+        .btn-logout {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 16px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 12px;
+            transition: all 0.2s;
+            font-weight: 600;
+            background: transparent;
+            border: none;
+            width: 100%;
+            text-align: left;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Top Bar Styling */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .top-bar-greeting {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .top-bar-icon {
+            cursor: pointer;
+            color: var(--text-color);
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--glass-05);
+        }
+
+        .top-bar-icon:hover {
+            background: var(--glass-10);
+        }
+
+        .top-bar-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .top-bar-avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .top-bar-icon:hover .top-bar-avatar {
+            border-color: var(--primary);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+    <div class="sidebar">
+        <button id="sidebar-toggle" onclick="toggleSidebar()" style="position: absolute; top: 16px; right: 16px; background: transparent; border: none; cursor: pointer; color: var(--text-muted); z-index: 10;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+        </button>
+        <a href="{% url 'dashboard' %}" class="sidebar-logo-container"
+            style="display: flex; justify-content: center; margin-bottom: 20px; margin-top: 10px; text-decoration: none;">
+            <svg viewBox="80 0 864 850" style="width: 100%; height: auto; max-height: 120px;"
+                xmlns="http://www.w3.org/2000/svg">
+                <path id="text-curve" d="M 512 912 A 400 400 0 1 1 512 112 A 400 400 0 1 1 512 912" fill="none" />
+                <text font-family="Inter, sans-serif" font-weight="800" font-size="130" letter-spacing="15" class="sidebar-logo-text">
+                    <textPath href="#text-curve" startOffset="50%" text-anchor="middle">
+                        <tspan fill="#f91b7d">C</tspan>
+                        <tspan fill="#b821df">H</tspan>
+                        <tspan fill="#693df5">A</tspan>
+                        <tspan fill="#2fa6ff">M</tspan>
+                        <tspan fill="#1cd2e3">C</tspan>
+                        <tspan fill="#ffc233">H</tspan>
+                        <tspan fill="#ff8733">M</tspan>
+                        <tspan fill="#ff4d4d">A</tspan>
+                        <tspan fill="#e32488">I</tspan>
+                        <tspan fill="#a020f0">D</tspan>
+                    </textPath>
+                </text>
+                <image href="/media/logo.png?v=2" x="182" y="182" width="660" height="660"
+                    preserveAspectRatio="xMidYMid meet" />
+            </svg>
+        </a>
+
+
+
+        <div class="nav-items">
+            <a href="{% url 'dashboard' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span class="nav-text">Home</span>
+            </a>
+
+            <a href="{% url 'search' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'search' %}active{% endif %}">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <span class="nav-text">Search</span>
+            </a>
+
+            <a href="{% url 'messages' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'messages' %}active{% endif %}">
+                <svg viewBox="0 0 24 24">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="nav-text">Messages</span>
+            </a>
+
+            <a href="{% url 'profile' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                <svg viewBox="0 0 24 24">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span class="nav-text">Profile</span>
+            </a>
+
+            <a href="{% url 'settings' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg>
+                <span class="nav-text">Settings</span>
+            </a>
+        </div>
+
+        <div style="margin-top: auto;">
+            <button class="btn-logout" onclick="logout()">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span class="nav-text">Logout</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="top-bar-greeting">Good Morning</div>
+            <div class="top-bar-right">
+                <!-- Notification Icon -->
+                <div class="notification-container" id="notification-container">
+                    <div class="top-bar-icon" title="Notifications" onclick="toggleNotifications(event)">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <div class="notification-badge" id="notification-badge"></div>
+                    </div>
+                    <div class="notification-dropdown" id="notification-dropdown">
+                        <h3>Notifications</h3>
+                        <div id="notification-list">
+                            <div style="color:var(--text-muted); font-size:14px; text-align:center;">No new
+                                notifications</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Profile Icon -->
+                <a href="{% url 'profile' %}" class="top-bar-icon" title="Profile"
+                    style="padding: 0; background: transparent;">
+                    <img id="topbar-avatar" src="https://ui-avatars.com/api/?name=User&background=random&size=40"
+                        alt="Profile" class="top-bar-avatar">
+                </a>
+            </div>
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        // Sidebar Toggle Logic
+        function toggleSidebar() {
+            const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('sidebar-collapsed', isCollapsed);
+        }
+
+        // Apply saved sidebar state on load
+        if (localStorage.getItem('sidebar-collapsed') === 'true') {
+            document.body.classList.add('sidebar-collapsed');
+        }
+
+        const accessToken = localStorage.getItem('access_token');
+        if (!accessToken) {
+            window.location.href = '/';
+        }
+
+        // Fetch user data for the top bar
+        async function loadTopBarData() {
+            try {
+                const res = await fetch('/api/profile/', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.profile_image) {
+                        document.getElementById('topbar-avatar').src = data.profile_image;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load topbar profile data', e);
+            }
+        }
+
+        loadTopBarData();
+
+        async function logout() {
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (refreshToken) {
+                try {
+                    await fetch('/api/logout/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${accessToken}`
+                        },
+                        body: JSON.stringify({ refresh: refreshToken })
+                    });
+                } catch (e) {
+                    console.error('Logout API failed', e);
+                }
+            }
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            window.location.href = '/';
+        }
+
+        // Sidebar Search Functionality
+        const sidebarSearchInput = document.getElementById('sidebar-search');
+        const sidebarSearchResults = document.getElementById('sidebar-search-results');
+        let sidebarSearchTimeout = null;
+
+        sidebarSearchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            if (sidebarSearchTimeout) clearTimeout(sidebarSearchTimeout);
+
+            if (query.length < 2) {
+                sidebarSearchResults.classList.remove('active');
+                return;
+            }
+
+            sidebarSearchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/chat/search/?q=${encodeURIComponent(query)}`, {
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        renderSidebarSearchResults(data.users);
+                    }
+                } catch (err) {
+                    console.error('Sidebar search failed', err);
+                }
+            }, 300); // debounce 300ms
+        });
+
+        function renderSidebarSearchResults(users) {
+            if (users.length === 0) {
+                sidebarSearchResults.innerHTML = '<div style="padding: 10px; color: var(--text-muted); font-size: 12px; text-align: center;">No users found</div>';
+            } else {
+                sidebarSearchResults.innerHTML = users.map(u => `
+                    <div class="search-result-item">
+                        <div class="search-result-info">
+                            <span class="search-result-name">${u.name}</span>
+                            <span class="search-result-email">${u.email}</span>
+                        </div>
+                        <button class="btn-connect" onclick="sendFriendRequestFromSidebar(${u.id}, this)" ${u.request_sent ? 'disabled' : ''}>
+                            ${u.request_sent ? 'Sent' : 'Connect'}
+                        </button>
+                    </div>
+                `).join('');
+            }
+            sidebarSearchResults.classList.add('active');
+        }
+
+        async function sendFriendRequestFromSidebar(userId, btn) {
+            btn.disabled = true;
+            btn.innerText = 'Sending...';
+            try {
+                const res = await fetch('/chat/request/send/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ receiver_id: userId })
+                });
+                if (res.ok) {
+                    btn.innerText = 'Sent';
+                } else {
+                    btn.disabled = false;
+                    btn.innerText = 'Connect';
+                }
+            } catch (e) {
+                console.error(e);
+                btn.disabled = false;
+                btn.innerText = 'Connect';
+            }
+        }
+
+        // Close search results and notifications when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!document.querySelector('.sidebar-search-container').contains(e.target)) {
+                sidebarSearchResults.classList.remove('active');
+            }
+            if (!document.getElementById('notification-container').contains(e.target)) {
+                document.getElementById('notification-dropdown').classList.remove('active');
+            }
+        });
+
+        // Notifications Functionality
+        const notifDropdown = document.getElementById('notification-dropdown');
+        const notifBadge = document.getElementById('notification-badge');
+        const notifList = document.getElementById('notification-list');
+
+        function toggleNotifications(e) {
+            e.stopPropagation();
+            notifDropdown.classList.toggle('active');
+        }
+
+        async function loadNotifications() {
+            try {
+                const res = await fetch('/chat/api/messages_data/', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const pending = data.pending_requests || [];
+
+                    if (pending.length > 0) {
+                        notifBadge.classList.add('active');
+                        notifList.innerHTML = pending.map(req => `
+                            <div class="notification-item" id="notif-req-${req.request_id}">
+                                <img src="${req.avatar}" class="notification-avatar">
+                                <div class="notification-info">
+                                    <p class="notification-name">${req.name}</p>
+                                    <p class="notification-text">Sent you a connection request</p>
+                                </div>
+                                <div class="notification-actions">
+                                    <button class="btn-acc" onclick="handleRequest(${req.request_id}, 'accept', event)">Accept</button>
+                                    <button class="btn-rej" onclick="handleRequest(${req.request_id}, 'reject', event)">Reject</button>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        notifBadge.classList.remove('active');
+                        notifList.innerHTML = '<div style="color:var(--text-muted); font-size:14px; text-align:center;">No new notifications</div>';
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load notifications', e);
+            }
+        }
+
+        async function handleRequest(requestId, action, event) {
+            event.stopPropagation();
+            try {
+                const res = await fetch('/chat/request/manage/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ request_id: requestId, action: action })
+                });
+                if (res.ok) {
+                    loadNotifications();
+                    // If we are on a page with conversations (messages/dashboard) refresh it
+                    if (typeof loadConversations === 'function') {
+                        loadConversations();
+                    }
+                    if (typeof loadProfile === 'function') {
+                        loadProfile();
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to handle request', e);
+            }
+        }
+
+        loadNotifications();
+        setInterval(loadNotifications, 10000); // Check every 10 seconds
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>
